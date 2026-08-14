@@ -3,8 +3,12 @@ const cors = require("cors");
 const morgan = require("morgan");
 require("dotenv").config();
 
-const authRoutes = require("./routes/auth.routes");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+
+const authRoutes = require("./routes/auth");
+const categoryRoutes = require("./routes/category");
+const productRoutes = require("./routes/product");
+const inventoryRoutes = require("./routes/inventory");
 
 const app = express();
 
@@ -29,7 +33,9 @@ app.get("/api/health", (req, res) => {
 
 /* --------------------------------- Routes --------------------------------- */
 app.use("/api/auth", authRoutes);
-
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/inventory-transactions", inventoryRoutes);
 // Additional route modules (products, categories, inventory, invoices,
 // print orders, shifts, reports, activity-logs) will be mounted here
 // in the following phases.

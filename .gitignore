@@ -1,11 +1,12 @@
-# Bỏ qua node_modules của cả 2 phần
-Backend/node_modules/
-Frontend/node_modules/
+# Bỏ qua node_modules ở TẤT CẢ các thư mục
+node_modules/
+**/node_modules/
 
-# Bỏ qua các file môi trường chứa thông tin bảo mật
+# Bỏ qua các file môi trường
 .env
-Backend/.env
-Frontend/.env
+*.env
+**/.env
 
 # Bỏ qua thư mục build
-Frontend/dist/
+dist/
+**/dist/

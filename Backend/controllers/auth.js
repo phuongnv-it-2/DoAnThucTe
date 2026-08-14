@@ -1,4 +1,4 @@
-const authService = require("../services/auth.service");
+const authService = require("../services/auth");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 

@@ -1,7 +1,7 @@
 const { User, Role, Employee } = require("../models");
 const { signToken } = require("../utils/jwt");
 const ApiError = require("../utils/ApiError");
-const { logActivity } = require("./activityLog.service");
+const { logActivity } = require("./activityLog");
 
 /**
  * Authenticate a user by username + password, return a signed JWT + safe user info.
