@@ -14,6 +14,8 @@ class User extends Model {
     toSafeJSON() {
         const values = { ...this.get() };
         delete values.password;
+        delete values.resetPasswordToken;
+        delete values.resetPasswordExpires;
         return values;
     }
 }
@@ -59,6 +61,14 @@ User.init(
             defaultValue: "ACTIVE",
         },
         lastLogin: {
+            type: DataTypes.DATE,
+            allowNull: true,
+        },
+        resetPasswordToken: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+        },
+        resetPasswordExpires: {
             type: DataTypes.DATE,
             allowNull: true,
         },

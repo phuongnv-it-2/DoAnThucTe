@@ -1,7 +1,10 @@
+const crypto = require("crypto");
+const { Op } = require("sequelize");
 const { User, Role, Employee } = require("../models");
 const { signToken } = require("../utils/jwt");
 const ApiError = require("../utils/ApiError");
 const { logActivity } = require("./activityLog");
+const { sendResetPasswordEmail } = require("../utils/email");
 
 /**
  * Authenticate a user by username + password, return a signed JWT + safe user info.
@@ -115,4 +118,113 @@ async function getMe(userId) {
     return user.toSafeJSON();
 }
 
-module.exports = { login, register, getMe };
+/**
+ * Change the current authenticated user's own password.
+ * Requires the correct current password before allowing the change.
+ */
+async function changePassword(userId, { currentPassword, newPassword }) {
+    if (!currentPassword || !newPassword) {
+        throw ApiError.badRequest("Vui lòng nhập mật khẩu hiện tại và mật khẩu mới");
+    }
+
+    if (newPassword.length < 6) {
+        throw ApiError.badRequest("Mật khẩu mới phải có ít nhất 6 ký tự");
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+        throw ApiError.notFound("Không tìm thấy người dùng");
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+        throw ApiError.unauthorized("Mật khẩu hiện tại không đúng");
+    }
+
+    if (currentPassword === newPassword) {
+        throw ApiError.badRequest("Mật khẩu mới phải khác mật khẩu hiện tại");
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    await logActivity({
+        userId: user.id,
+        action: "UPDATE",
+        entity: "User",
+        entityId: user.id,
+        description: `${user.fullName} đã đổi mật khẩu tài khoản`,
+    });
+
+    return { message: "Đổi mật khẩu thành công" };
+}
+
+/**
+ * Generate a reset token, store its hash + expiry, email the raw token as a link.
+ * Always responds success even if email not found, to avoid leaking which
+ * emails are registered.
+ */
+async function forgotPassword(email) {
+    if (!email) throw ApiError.badRequest("Vui lòng nhập email");
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+        return { message: "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi" };
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/reset-password?token=${rawToken}`;
+
+    await sendResetPasswordEmail(user.email, user.fullName, resetUrl);
+
+    return { message: "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi" };
+}
+
+/**
+ * Verify the raw token from the email link, set a new password if valid & not expired.
+ */
+async function resetPassword({ token, newPassword }) {
+    if (!token || !newPassword) {
+        throw ApiError.badRequest("Vui lòng cung cấp token và mật khẩu mới");
+    }
+    if (newPassword.length < 6) {
+        throw ApiError.badRequest("Mật khẩu mới phải có ít nhất 6 ký tự");
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+        where: {
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { [Op.gt]: new Date() },
+        },
+    });
+
+    if (!user) {
+        throw ApiError.badRequest("Token không hợp lệ hoặc đã hết hạn");
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    await logActivity({
+        userId: user.id,
+        action: "UPDATE",
+        entity: "User",
+        entityId: user.id,
+        description: `${user.fullName} đã đặt lại mật khẩu qua email`,
+    });
+
+    return { message: "Đặt lại mật khẩu thành công" };
+}
+
+module.exports = { login, register, getMe, changePassword, forgotPassword, resetPassword };
