@@ -23,7 +23,12 @@ function normalizeError(err) {
     if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
         return ApiError.unauthorized("Token không hợp lệ hoặc đã hết hạn");
     }
-
+    if (err.name === "MulterError") {
+        if (err.code === "LIMIT_FILE_SIZE") {
+            return ApiError.badRequest("File ảnh vượt quá dung lượng cho phép (tối đa 5MB)");
+        }
+        return ApiError.badRequest("Lỗi tải file: " + err.message);
+    }
     return null;
 }
 

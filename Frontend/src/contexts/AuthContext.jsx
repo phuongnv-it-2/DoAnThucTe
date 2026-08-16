@@ -3,11 +3,18 @@ import { authApi } from "../services/authApi";
 
 const AuthContext = createContext(null);
 
+// Chuẩn hóa role về dạng string (tên role), bất kể backend trả string hay object lồng nhau
+function normalizeUser(rawUser) {
+  if (!rawUser) return rawUser;
+  const roleName =
+    typeof rawUser.role === "string" ? rawUser.role : rawUser.role?.name;
+  return { ...rawUser, role: roleName };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On first load: if a token exists, validate it against /auth/me
   useEffect(() => {
     const token = localStorage.getItem("shmart_token");
     const cachedUser = localStorage.getItem("shmart_user");
@@ -19,7 +26,7 @@ export function AuthProvider({ children }) {
 
     if (cachedUser) {
       try {
-        setUser(JSON.parse(cachedUser));
+        setUser(normalizeUser(JSON.parse(cachedUser)));
       } catch {
         // ignore parse errors, fall through to /me check
       }
@@ -28,8 +35,9 @@ export function AuthProvider({ children }) {
     authApi
       .me()
       .then((res) => {
-        setUser(res.data.data);
-        localStorage.setItem("shmart_user", JSON.stringify(res.data.data));
+        const normalized = normalizeUser(res.data.data);
+        setUser(normalized);
+        localStorage.setItem("shmart_user", JSON.stringify(normalized));
       })
       .catch(() => {
         localStorage.removeItem("shmart_token");
@@ -43,11 +51,12 @@ export function AuthProvider({ children }) {
     const res = await authApi.login(username, password);
     const { token, user: loggedInUser } = res.data.data;
 
+    const normalized = normalizeUser(loggedInUser);
     localStorage.setItem("shmart_token", token);
-    localStorage.setItem("shmart_user", JSON.stringify(loggedInUser));
-    setUser(loggedInUser);
+    localStorage.setItem("shmart_user", JSON.stringify(normalized));
+    setUser(normalized);
 
-    return loggedInUser;
+    return normalized;
   }
 
   function logout() {

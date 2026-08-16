@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 require("dotenv").config();
-
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 
 const authRoutes = require("./routes/auth");
@@ -14,7 +13,8 @@ const shiftRoutes = require("./routes/shift");
 const printOrderRoutes = require("./routes/printOrder");
 const activityLogRoutes = require("./routes/activityLog");
 const reportRoutes = require("./routes/report");
-
+const uploadRoutes = require("./routes/upload");
+const userRoutes = require("./routes/user");
 const app = express();
 
 /* ---------------------------- Global middleware -------------------------- */
@@ -46,6 +46,8 @@ app.use("/api/shifts", shiftRoutes);
 app.use("/api/print-orders", printOrderRoutes);
 app.use("/api/activity-logs", activityLogRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/users", userRoutes);
 // Additional route modules (products, categories, inventory, invoices,
 // print orders, shifts, reports, activity-logs) will be mounted here
 // in the following phases.
