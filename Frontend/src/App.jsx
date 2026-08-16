@@ -12,6 +12,8 @@ import ShiftManagement from "./pages/shift/ShiftManagement";
 import ComingSoon from "./pages/ComingSoon";
 import { ROLE_HOME } from "./constants/roles";
 
+import CategoryManagement from "./pages/category/CategoryManagement";
+
 /** Redirects "/" to the correct home page based on the logged-in role. */
 function RootRedirect() {
   const { isAuthenticated, role, loading } = useAuth();
@@ -40,10 +42,7 @@ export default function App() {
                     path="products"
                     element={<ComingSoon title="Sản phẩm" />}
                   />
-                  <Route
-                    path="categories"
-                    element={<ComingSoon title="Danh mục" />}
-                  />
+                  <Route path="categories" element={<CategoryManagement />} />
                   <Route
                     path="inventory"
                     element={<ComingSoon title="Kho hàng" />}
