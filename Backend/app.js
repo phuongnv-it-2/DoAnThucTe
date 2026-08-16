@@ -9,6 +9,10 @@ const authRoutes = require("./routes/auth");
 const categoryRoutes = require("./routes/category");
 const productRoutes = require("./routes/product");
 const inventoryRoutes = require("./routes/inventory");
+const invoiceRoutes = require("./routes/invoice");
+const shiftRoutes = require("./routes/shift");
+const printOrderRoutes = require("./routes/printOrder");
+const activityLogRoutes = require("./routes/activityLog");
 
 const app = express();
 
@@ -36,6 +40,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/inventory-transactions", inventoryRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/shifts", shiftRoutes);
+app.use("/api/print-orders", printOrderRoutes);
+app.use("/api/activity-logs", activityLogRoutes);
 // Additional route modules (products, categories, inventory, invoices,
 // print orders, shifts, reports, activity-logs) will be mounted here
 // in the following phases.

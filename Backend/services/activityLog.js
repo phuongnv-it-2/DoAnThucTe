@@ -1,4 +1,5 @@
-const { ActivityLog } = require("../models");
+const { Op } = require("sequelize");
+const { ActivityLog, User } = require("../models");
 
 /**
  * Central helper to record an activity log entry.
@@ -35,4 +36,23 @@ async function logActivity({
     }
 }
 
-module.exports = { logActivity };
+async function getAll({ userId, entity, action, fromDate, toDate, limit } = {}) {
+    const where = {};
+    if (userId) where.userId = userId;
+    if (entity) where.entity = entity;
+    if (action) where.action = action;
+    if (fromDate || toDate) {
+        where.createdAt = {};
+        if (fromDate) where.createdAt[Op.gte] = new Date(fromDate);
+        if (toDate) where.createdAt[Op.lte] = new Date(toDate);
+    }
+
+    return ActivityLog.findAll({
+        where,
+        include: [{ model: User, as: "user", attributes: ["id", "fullName", "username"] }],
+        order: [["createdAt", "DESC"]],
+        limit: limit ? Number(limit) : 100, // mặc định giới hạn 100 dòng gần nhất, tránh tải toàn bộ bảng
+    });
+}
+
+module.exports = { logActivity, getAll };

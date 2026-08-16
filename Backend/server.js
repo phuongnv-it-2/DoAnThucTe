@@ -12,7 +12,7 @@ async function start() {
         // In development, sync models to DB (create tables if not exist).
         // Use { alter: true } while iterating on the schema; switch to
         // migrations for production once the schema stabilizes.
-        await sequelize.sync({ alter: process.env.NODE_ENV === "development" });
+        await sequelize.sync();
         console.log("✅ Đồng bộ models thành công");
 
         app.listen(PORT, () => {
