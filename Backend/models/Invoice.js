@@ -61,7 +61,11 @@ Invoice.init(
             defaultValue: "CASH",
         },
         status: {
-            type: DataTypes.ENUM("COMPLETED", "CANCELLED"),
+            type: DataTypes.ENUM(
+                "PENDING_PAYMENT",
+                "COMPLETED",
+                "CANCELLED"
+            ),
             allowNull: false,
             defaultValue: "COMPLETED",
         },

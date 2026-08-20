@@ -6,6 +6,7 @@ import {
   Printer,
   TrendingUp,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { reportApi } from "../../services/reportApi";
 import { useToast } from "../../contexts/ToastContext";
@@ -25,6 +26,7 @@ export default function Reports() {
   const [topProducts, setTopProducts] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   async function loadData(from, to) {
     setLoading(true);
@@ -59,6 +61,29 @@ export default function Reports() {
       return;
     }
     loadData(fromDate, toDate);
+  }
+  async function handleExport() {
+    if (!fromDate || !toDate) {
+      toast.error("Vui lòng chọn đầy đủ khoảng thời gian");
+      return;
+    }
+    setExporting(true);
+    try {
+      const res = await reportApi.exportTransactions({ fromDate, toDate });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `giao-dich-${fromDate}-den-${toDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Xuất file thành công");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Xuất file thất bại");
+    } finally {
+      setExporting(false);
+    }
   }
 
   function applyPreset(days) {
@@ -110,6 +135,18 @@ export default function Reports() {
             className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
           >
             Lọc
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {exporting ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Download size={15} />
+            )}
+            Xuất Excel
           </button>
         </div>
       </div>

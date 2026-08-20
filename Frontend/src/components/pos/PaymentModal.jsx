@@ -10,6 +10,7 @@ export default function PaymentModal({
   onConfirm,
   submitting,
   total,
+  invoice,
 }) {
   const [method, setMethod] = useState("CASH");
   const [received, setReceived] = useState("");

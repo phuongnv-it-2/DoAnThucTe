@@ -11,6 +11,7 @@ const {
 const ApiError = require("../utils/ApiError");
 const { logActivity } = require("./activityLog");
 
+
 function generateInvoiceCode() {
     const now = new Date();
     const y = now.getFullYear();
@@ -21,6 +22,7 @@ function generateInvoiceCode() {
 }
 
 async function createInvoice(data, actor) {
+    const finalPaymentMethod = paymentMethod || "CASH";
     const { shiftId, items, customerName, customerPhone, paymentMethod, discount, note } = data;
 
     if (!shiftId) throw ApiError.badRequest("Vui lòng chọn ca làm việc");
@@ -57,8 +59,15 @@ async function createInvoice(data, actor) {
                 subtotal: 0,
                 discount: discount || 0,
                 total: 0,
-                paymentMethod: paymentMethod || "CASH",
-                status: "COMPLETED",
+                paymentMethod: finalPaymentMethod,
+
+                // CASH thanh toán ngay.
+                // TRANSFER phải chờ SePay xác nhận.
+                status:
+                    finalPaymentMethod === "TRANSFER"
+                        ? "PENDING_PAYMENT"
+                        : "COMPLETED",
+
                 note: note || null,
             },
             { transaction: t }
@@ -129,18 +138,29 @@ async function createInvoice(data, actor) {
         await invoice.update({ subtotal, total }, { transaction: t });
 
         // Cập nhật tổng hợp ca làm việc
-        const cashDelta = invoice.paymentMethod === "CASH" ? total : 0;
-        const transferDelta = invoice.paymentMethod === "TRANSFER" ? total : 0;
+        const isCash = invoice.paymentMethod === "CASH";
+        const isPaid = invoice.status === "COMPLETED";
+
+        const cashDelta = isCash && isPaid ? total : 0;
+        const transferDelta =
+            !isCash && isPaid ? total : 0;
+
         await shift.update(
             {
-                totalRevenue: Number(shift.totalRevenue) + total,
+                totalRevenue:
+                    Number(shift.totalRevenue) +
+                    (isPaid ? total : 0),
+
                 invoiceCount: shift.invoiceCount + 1,
-                cashAmount: Number(shift.cashAmount) + cashDelta,
-                transferAmount: Number(shift.transferAmount) + transferDelta,
+
+                cashAmount:
+                    Number(shift.cashAmount) + cashDelta,
+
+                transferAmount:
+                    Number(shift.transferAmount) + transferDelta,
             },
             { transaction: t }
         );
-
         return invoice.id;
     }).then(async (invoiceId) => {
         const invoice = await getById(invoiceId);

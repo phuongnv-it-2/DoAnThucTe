@@ -71,15 +71,39 @@ async function processSepayWebhook(payload) {
     });
 
     if (matchStatus === "MATCHED") {
-        await logActivity({
-            userId: null,
-            action: "OTHER",
-            entity: "BankTransaction",
-            entityId: transaction.id,
-            description: `Hệ thống tự động đối soát chuyển khoản khớp hóa đơn ${matchedInvoice.invoiceCode} (${Number(
-                transferAmount
-            ).toLocaleString("vi-VN")}đ)`,
-        });
+        // Hóa đơn phải đang chờ thanh toán
+        if (matchedInvoice.status === "PENDING_PAYMENT") {
+            await matchedInvoice.update({
+                status: "COMPLETED",
+            });
+
+            // Cập nhật ca làm việc
+            if (matchedInvoice.shiftId) {
+                const shift = await Shift.findByPk(matchedInvoice.shiftId);
+
+                if (shift) {
+                    await shift.update({
+                        totalRevenue:
+                            Number(shift.totalRevenue) +
+                            Number(matchedInvoice.total),
+
+                        transferAmount:
+                            Number(shift.transferAmount) +
+                            Number(matchedInvoice.total),
+                    });
+                }
+            }
+
+            await logActivity({
+                userId: null,
+                action: "OTHER",
+                entity: "BankTransaction",
+                entityId: transaction.id,
+                description: `Hệ thống tự động xác nhận thanh toán hóa đơn ${matchedInvoice.invoiceCode} (${Number(
+                    transferAmount
+                ).toLocaleString("vi-VN")}đ)`,
+            });
+        }
     }
 
     return { transaction, matchStatus, matchedInvoice };

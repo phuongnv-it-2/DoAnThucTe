@@ -50,9 +50,6 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/payments", paymentRoutes);
-// Additional route modules (products, categories, inventory, invoices,
-// print orders, shifts, reports, activity-logs) will be mounted here
-// in the following phases.
 
 /* --------------------------------- 404 / errors ---------------------------- */
 app.use(notFoundHandler);

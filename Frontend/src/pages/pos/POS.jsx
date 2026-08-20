@@ -12,6 +12,7 @@ import ReceiptModal from "../../components/pos/ReceiptModal";
 import PaymentModal from "../../components/pos/PaymentModal";
 import HeldOrdersBar from "../../components/pos/HeldOrdersBar";
 import { formatCurrency } from "../../utils/formatCurrency";
+import TransferPaymentModal from "../../components/pos/TransferPaymentModal";
 const HELD_ORDERS_KEY = "shmart_held_orders";
 
 export default function POS() {
@@ -40,6 +41,9 @@ export default function POS() {
   const [submitting, setSubmitting] = useState(false);
   const [receiptInvoice, setReceiptInvoice] = useState(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  const [transferInvoice, setTransferInvoice] = useState(null);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   // ---------------------------------------------------------------- load
   useEffect(() => {
@@ -104,6 +108,46 @@ export default function POS() {
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
+
+  useEffect(() => {
+    if (!transferInvoice || !transferModalOpen) {
+      return;
+    }
+
+    let stopped = false;
+
+    const checkPayment = async () => {
+      try {
+        const res = await invoiceApi.getById(transferInvoice.id);
+
+        const invoice = res.data.data;
+
+        if (stopped) return;
+
+        setTransferInvoice(invoice);
+
+        if (invoice.status === "COMPLETED") {
+          setTransferModalOpen(false);
+          setTransferInvoice(null);
+
+          setReceiptInvoice(invoice);
+
+          toast.success(`Đã nhận thanh toán ${invoice.invoiceCode}`);
+        }
+      } catch (err) {
+        console.error("[POS] Không kiểm tra được trạng thái thanh toán:", err);
+      }
+    };
+
+    checkPayment();
+
+    const timer = setInterval(checkPayment, 3000);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [transferInvoice?.id, transferModalOpen]);
 
   // ------------------------------------------------------------- filters
   const filteredProducts = useMemo(() => {
@@ -288,11 +332,25 @@ export default function POS() {
       const res = await invoiceApi.create(payload);
       const invoice = res.data.data;
 
-      toast.success(`Tạo hóa đơn ${invoice.invoiceCode} thành công`);
       setPaymentModalOpen(false);
-      setReceiptInvoice(invoice);
       clearCart();
 
+      if (paymentMethod === "TRANSFER") {
+        // Chuyển khoản:
+        // Chưa hiện hóa đơn hoàn tất.
+        // Hiện màn hình chờ SePay xác nhận.
+        setTransferInvoice(invoice);
+        setTransferModalOpen(true);
+
+        toast.success(
+          `Đã tạo hóa đơn ${invoice.invoiceCode}. Đang chờ chuyển khoản.`
+        );
+      } else {
+        // Tiền mặt thanh toán ngay
+        toast.success(`Tạo hóa đơn ${invoice.invoiceCode} thành công`);
+
+        setReceiptInvoice(invoice);
+      }
       const productsRes = await productApi.getAll({ status: "ACTIVE" });
       setProducts(productsRes.data.data);
     } catch (err) {
@@ -449,6 +507,14 @@ export default function POS() {
         onConfirm={handleConfirmPayment}
         submitting={submitting}
         total={total}
+      />
+      <TransferPaymentModal
+        open={transferModalOpen}
+        invoice={transferInvoice}
+        onClose={() => {
+          setTransferModalOpen(false);
+          setTransferInvoice(null);
+        }}
       />
 
       {receiptInvoice && (
