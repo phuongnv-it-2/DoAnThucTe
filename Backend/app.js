@@ -15,6 +15,7 @@ const activityLogRoutes = require("./routes/activityLog");
 const reportRoutes = require("./routes/report");
 const uploadRoutes = require("./routes/upload");
 const userRoutes = require("./routes/user");
+const paymentRoutes = require("./routes/payment");
 const app = express();
 
 /* ---------------------------- Global middleware -------------------------- */
@@ -48,6 +49,7 @@ app.use("/api/activity-logs", activityLogRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/payments", paymentRoutes);
 // Additional route modules (products, categories, inventory, invoices,
 // print orders, shifts, reports, activity-logs) will be mounted here
 // in the following phases.

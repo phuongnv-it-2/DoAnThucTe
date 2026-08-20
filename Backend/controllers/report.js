@@ -18,4 +18,21 @@ const lowStock = asyncHandler(async (req, res) => {
     res.json({ success: true, data: products });
 });
 
-module.exports = { revenueSummary, topProducts, lowStock };
+const exportTransactions = asyncHandler(async (req, res) => {
+    const { fromDate, toDate } = req.query;
+    const workbook = await reportService.exportDailyTransactions({ fromDate, toDate });
+
+    res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="giao-dich-${fromDate}.xlsx"`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+});
+
+module.exports = { revenueSummary, topProducts, lowStock, exportTransactions };

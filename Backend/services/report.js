@@ -2,6 +2,7 @@ const { Op, fn, col, literal } = require("sequelize");
 const { sequelize, Invoice, InvoiceDetail, PrintOrder, Product, Category } = require("../models");
 const ApiError = require("../utils/ApiError");
 
+
 function buildDateWhere(fromDate, toDate) {
     const where = {};
     if (fromDate || toDate) {
@@ -146,5 +147,64 @@ async function getLowStockProducts() {
 
     return products;
 }
+const ExcelJS = require("exceljs");
+const BankTransactionModel = require("../models").BankTransaction;
 
-module.exports = { getRevenueSummary, getTopProducts, getLowStockProducts };
+async function exportDailyTransactions({ fromDate, toDate }) {
+    if (!fromDate || !toDate) {
+        throw ApiError.badRequest("Vui lòng cung cấp fromDate và toDate");
+    }
+
+    const { Op } = require("sequelize");
+    const transactions = await BankTransactionModel.findAll({
+        where: {
+            transactionDate: { [Op.gte]: new Date(fromDate), [Op.lte]: new Date(toDate) },
+        },
+        include: [{ model: Invoice, as: "invoice", attributes: ["invoiceCode"] }],
+        order: [["transactionDate", "ASC"]],
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Giao dịch chuyển khoản");
+
+    sheet.columns = [
+        { header: "STT", key: "stt", width: 6 },
+        { header: "Mã đơn", key: "invoiceCode", width: 14 },
+        { header: "Thời gian", key: "time", width: 12 },
+        { header: "Nội dung CK", key: "content", width: 30 },
+        { header: "Số tiền", key: "amount", width: 15 },
+        { header: "Ngân hàng", key: "gateway", width: 16 },
+        { header: "Mã giao dịch", key: "referenceCode", width: 16 },
+        { header: "Trạng thái", key: "status", width: 14 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+
+    const STATUS_LABEL = {
+        MATCHED: "Đã khớp",
+        UNMATCHED: "Chưa khớp",
+        AMOUNT_MISMATCH: "Sai số tiền",
+    };
+
+    transactions.forEach((t, i) => {
+        sheet.addRow({
+            stt: i + 1,
+            invoiceCode: t.invoice?.invoiceCode || "—",
+            time: new Date(t.transactionDate).toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+            content: t.content || "",
+            amount: Number(t.transferAmount),
+            gateway: t.gateway || "",
+            referenceCode: t.referenceCode || "",
+            status: STATUS_LABEL[t.matchStatus] || t.matchStatus,
+        });
+    });
+
+    sheet.getColumn("amount").numFmt = "#,##0";
+
+    return workbook;
+}
+
+module.exports = { getRevenueSummary, getTopProducts, getLowStockProducts, exportDailyTransactions };
+

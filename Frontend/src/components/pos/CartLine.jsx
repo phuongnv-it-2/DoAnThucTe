@@ -4,6 +4,18 @@ import { formatCurrency } from "../../utils/formatCurrency";
 export default function CartLine({ item, onQtyChange, onRemove }) {
   const lineTotal = item.quantity * item.unitPrice;
 
+  function handleInputChange(e) {
+    const raw = e.target.value;
+    if (raw === "") {
+      onQtyChange(item.productId, 0);
+      return;
+    }
+    const num = Number(raw);
+    if (!Number.isNaN(num)) {
+      onQtyChange(item.productId, num);
+    }
+  }
+
   return (
     <div className="flex items-center gap-3 border-b border-slate-100 py-3">
       <div className="min-w-0 flex-1">
@@ -15,16 +27,20 @@ export default function CartLine({ item, onQtyChange, onRemove }) {
         </p>
       </div>
 
-      <div className="flex items-center gap-1.5 rounded-lg border border-slate-200">
+      <div className="flex items-center gap-1 rounded-lg border border-slate-200">
         <button
           onClick={() => onQtyChange(item.productId, item.quantity - 1)}
           className="flex h-7 w-7 items-center justify-center text-slate-500 hover:text-slate-800"
         >
           <Minus size={14} />
         </button>
-        <span className="w-6 text-center text-sm font-medium">
-          {item.quantity}
-        </span>
+        <input
+          type="number"
+          value={item.quantity}
+          onChange={handleInputChange}
+          onFocus={(e) => e.target.select()}
+          className="w-10 border-0 bg-transparent text-center text-sm font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
         <button
           onClick={() => onQtyChange(item.productId, item.quantity + 1)}
           disabled={item.quantity >= item.stock}

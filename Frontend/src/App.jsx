@@ -13,8 +13,14 @@ import ComingSoon from "./pages/ComingSoon";
 import { ROLE_HOME } from "./constants/roles";
 
 import CategoryManagement from "./pages/category/CategoryManagement";
+import ProductManagement from "./pages/product/ProductManagement";
+import InventoryManagement from "./pages/inventory/InventoryManagement";
+import InvoiceManagement from "./pages/invoice/InvoiceManagement";
+import PrintOrderManagement from "./pages/printOrder/PrintOrderManagement";
+import Reports from "./pages/report/Reports";
+import ActivityLogs from "./pages/activityLog/ActivityLogs";
+import UserManagement from "./pages/user/UserManagement";
 
-/** Redirects "/" to the correct home page based on the logged-in role. */
 function RootRedirect() {
   const { isAuthenticated, role, loading } = useAuth();
   if (loading) return null;
@@ -38,40 +44,22 @@ export default function App() {
                 <Route path="/admin" element={<MainLayout />}>
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="pos" element={<POS />} />
-                  <Route
-                    path="products"
-                    element={<ComingSoon title="Sản phẩm" />}
-                  />
+                  <Route path="products" element={<ProductManagement />} />
                   <Route path="categories" element={<CategoryManagement />} />
-                  <Route
-                    path="inventory"
-                    element={<ComingSoon title="Kho hàng" />}
-                  />
+                  <Route path="inventory" element={<InventoryManagement />} />
                   <Route
                     path="employees"
                     element={<ComingSoon title="Nhân viên" />}
                   />
                   <Route path="shifts" element={<ShiftManagement />} />
-                  <Route
-                    path="invoices"
-                    element={<ComingSoon title="Hóa đơn" />}
-                  />
+                  <Route path="invoices" element={<InvoiceManagement />} />
                   <Route
                     path="print-orders"
-                    element={<ComingSoon title="Đơn in" />}
+                    element={<PrintOrderManagement />}
                   />
-                  <Route
-                    path="reports"
-                    element={<ComingSoon title="Báo cáo" />}
-                  />
-                  <Route
-                    path="activity-logs"
-                    element={<ComingSoon title="Lịch sử hoạt động" />}
-                  />
-                  <Route
-                    path="users"
-                    element={<ComingSoon title="Tài khoản" />}
-                  />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="activity-logs" element={<ActivityLogs />} />
+                  <Route path="users" element={<UserManagement />} />
                   <Route
                     path="settings"
                     element={<ComingSoon title="Cài đặt" />}
@@ -84,31 +72,19 @@ export default function App() {
                 <Route path="/manager" element={<MainLayout />}>
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="pos" element={<POS />} />
-                  <Route
-                    path="products"
-                    element={<ComingSoon title="Sản phẩm" />}
-                  />
-                  <Route
-                    path="inventory"
-                    element={<ComingSoon title="Kho" />}
-                  />
+                  <Route path="products" element={<ProductManagement />} />
+                  <Route path="inventory" element={<InventoryManagement />} />
                   <Route
                     path="employees"
                     element={<ComingSoon title="Nhân viên" />}
                   />
                   <Route path="shifts" element={<ShiftManagement />} />
-                  <Route
-                    path="invoices"
-                    element={<ComingSoon title="Hóa đơn" />}
-                  />
+                  <Route path="invoices" element={<InvoiceManagement />} />
                   <Route
                     path="print-orders"
-                    element={<ComingSoon title="Đơn in" />}
+                    element={<PrintOrderManagement />}
                   />
-                  <Route
-                    path="reports"
-                    element={<ComingSoon title="Báo cáo" />}
-                  />
+                  <Route path="reports" element={<Reports />} />
                 </Route>
               </Route>
 
@@ -120,13 +96,10 @@ export default function App() {
                     path="products"
                     element={<ComingSoon title="Sản phẩm" />}
                   />
-                  <Route
-                    path="invoices"
-                    element={<ComingSoon title="Hóa đơn" />}
-                  />
+                  <Route path="invoices" element={<InvoiceManagement />} />
                   <Route
                     path="print-orders"
-                    element={<ComingSoon title="Đơn in" />}
+                    element={<PrintOrderManagement />}
                   />
                   <Route path="shift" element={<ShiftManagement />} />
                 </Route>

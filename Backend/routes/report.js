@@ -9,5 +9,5 @@ const authorize = require("../middleware/authorize");
 router.get("/revenue", authenticate, authorize("ADMIN", "MANAGER"), reportController.revenueSummary);
 router.get("/top-products", authenticate, authorize("ADMIN", "MANAGER"), reportController.topProducts);
 router.get("/low-stock", authenticate, authorize("ADMIN", "MANAGER"), reportController.lowStock);
-
+router.get("/export-transactions", authenticate, authorize("ADMIN", "MANAGER"), reportController.exportTransactions);
 module.exports = router;

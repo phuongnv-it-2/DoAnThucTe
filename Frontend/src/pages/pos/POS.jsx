@@ -1,11 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  Search,
-  ShoppingCart,
-  Banknote,
-  CreditCard,
-  Loader2,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, ShoppingCart, Loader2, PauseCircle } from "lucide-react";
 import { productApi } from "../../services/productApi";
 import { categoryApi } from "../../services/categoryApi";
 import { invoiceApi } from "../../services/invoiceApi";
@@ -15,10 +9,14 @@ import ProductCard from "../../components/pos/ProductCard";
 import CategoryTabs from "../../components/pos/CategoryTabs";
 import CartLine from "../../components/pos/CartLine";
 import ReceiptModal from "../../components/pos/ReceiptModal";
+import PaymentModal from "../../components/pos/PaymentModal";
+import HeldOrdersBar from "../../components/pos/HeldOrdersBar";
 import { formatCurrency } from "../../utils/formatCurrency";
+const HELD_ORDERS_KEY = "shmart_held_orders";
 
 export default function POS() {
   const toast = useToast();
+  const searchRef = useRef(null);
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -29,11 +27,19 @@ export default function POS() {
 
   const [cart, setCart] = useState([]); // { productId, name, sku, unit, unitPrice, quantity, stock }
   const [discount, setDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [heldOrders, setHeldOrders] = useState(() => {
+    try {
+      const raw = localStorage.getItem(HELD_ORDERS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [currentShift, setCurrentShift] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [receiptInvoice, setReceiptInvoice] = useState(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   // ---------------------------------------------------------------- load
   useEffect(() => {
@@ -59,6 +65,45 @@ export default function POS() {
     loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // -------------------------------------------------- persist held orders
+  useEffect(() => {
+    try {
+      if (heldOrders.length === 0) {
+        localStorage.removeItem(HELD_ORDERS_KEY);
+      } else {
+        localStorage.setItem(HELD_ORDERS_KEY, JSON.stringify(heldOrders));
+      }
+    } catch (err) {
+      // localStorage có thể đầy hoặc bị chặn (chế độ ẩn danh) — bỏ qua, không chặn luồng bán hàng
+      console.error("[POS] Không thể lưu đơn giữ:", err);
+    }
+  }, [heldOrders]);
+
+  // ---------------------------------------------------------- shortcuts
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Bỏ qua nếu đang gõ trong 1 input khác (trừ ô tìm kiếm)
+      const isTyping =
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA";
+
+      if (e.key === "F3") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        if (cart.length > 0) setPaymentModalOpen(true);
+      } else if (e.key === "F9" && !isTyping) {
+        e.preventDefault();
+        if (cart.length > 0) handleHoldOrder();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart]);
 
   // ------------------------------------------------------------- filters
   const filteredProducts = useMemo(() => {
@@ -123,12 +168,99 @@ export default function POS() {
     setDiscount(0);
   }
 
+  // ------------------------------------------------------- barcode scan
+  function handleSearchKeyDown(e) {
+    if (e.key !== "Enter") return;
+    const q = search.trim().toLowerCase();
+    if (!q) return;
+
+    // Ưu tiên khớp chính xác mã vạch hoặc SKU (thao tác quét mã)
+    const exactMatch = products.find(
+      (p) =>
+        (p.barcode && p.barcode.toLowerCase() === q) ||
+        p.sku.toLowerCase() === q
+    );
+
+    if (exactMatch) {
+      if (exactMatch.stock <= 0) {
+        toast.error(`"${exactMatch.name}" đã hết hàng`);
+      } else {
+        addToCart(exactMatch);
+        toast.success(`Đã thêm "${exactMatch.name}"`);
+      }
+      setSearch("");
+      return;
+    }
+
+    // Nếu chỉ có đúng 1 kết quả khớp mờ, thêm luôn cho nhanh
+    if (filteredProducts.length === 1) {
+      addToCart(filteredProducts[0]);
+      setSearch("");
+    }
+  }
+
+  // -------------------------------------------------------- held orders
+  function handleHoldOrder() {
+    if (cart.length === 0) return;
+    const label = `Đơn ${heldOrders.length + 1}`;
+    setHeldOrders((prev) => [
+      ...prev,
+      { id: Date.now(), label, cart, discount },
+    ]);
+    clearCart();
+    toast.success(`Đã giữ "${label}" — bạn có thể tiếp tục bán đơn khác`);
+  }
+
+  function handleResumeOrder(id) {
+    const order = heldOrders.find((o) => o.id === id);
+    if (!order) return;
+
+    // Đồng bộ lại tồn kho mới nhất + lọc bỏ sản phẩm không còn tồn tại/đã ngừng bán
+    const syncedCart = order.cart
+      .map((item) => {
+        const current = products.find((p) => p.id === item.productId);
+        if (!current) return null; // sản phẩm đã bị xóa/vô hiệu hóa
+        return {
+          ...item,
+          stock: current.stock,
+          unitPrice: item.unitPrice, // giữ giá đã chốt lúc thêm vào giỏ
+          quantity: Math.min(item.quantity, current.stock),
+        };
+      })
+      .filter(Boolean);
+
+    const droppedCount = order.cart.length - syncedCart.length;
+    if (droppedCount > 0) {
+      toast.error(
+        `${droppedCount} sản phẩm trong đơn không còn khả dụng, đã bị loại bỏ`
+      );
+    }
+
+    if (cart.length > 0) {
+      // Giữ lại đơn hiện tại trước khi chuyển sang đơn đã lưu
+      const label = `Đơn ${heldOrders.length + 1}`;
+      setHeldOrders((prev) => [
+        ...prev.filter((o) => o.id !== id),
+        { id: Date.now(), label, cart, discount },
+      ]);
+    } else {
+      setHeldOrders((prev) => prev.filter((o) => o.id !== id));
+    }
+
+    setCart(syncedCart);
+    setDiscount(order.discount);
+  }
+
+  function handleDiscardOrder(id) {
+    setHeldOrders((prev) => prev.filter((o) => o.id !== id));
+  }
+
   // ------------------------------------------------------------- totals
   const subtotal = cart.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
   const total = Math.max(0, subtotal - Number(discount || 0));
 
   // ----------------------------------------------------------- checkout
-  async function handleCheckout() {
+  async function handleConfirmPayment(paymentMethod) {
     if (cart.length === 0) {
       toast.error("Giỏ hàng đang trống");
       return;
@@ -157,10 +289,10 @@ export default function POS() {
       const invoice = res.data.data;
 
       toast.success(`Tạo hóa đơn ${invoice.invoiceCode} thành công`);
+      setPaymentModalOpen(false);
       setReceiptInvoice(invoice);
       clearCart();
 
-      // Refresh product stock after a successful sale
       const productsRes = await productApi.getAll({ status: "ACTIVE" });
       setProducts(productsRes.data.data);
     } catch (err) {
@@ -181,9 +313,11 @@ export default function POS() {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
+              ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm sản phẩm theo tên, SKU, mã vạch..."
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Quét mã vạch hoặc tìm theo tên, SKU... (F3)"
               className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             />
           </div>
@@ -194,6 +328,12 @@ export default function POS() {
             onChange={setActiveCategory}
           />
         </div>
+
+        <HeldOrdersBar
+          heldOrders={heldOrders}
+          onResume={handleResumeOrder}
+          onDiscard={handleDiscardOrder}
+        />
 
         <div className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
           {loading ? (
@@ -221,19 +361,30 @@ export default function POS() {
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
             <ShoppingCart size={17} /> Giỏ hàng ({cart.length})
           </h3>
-          {cart.length > 0 && (
-            <button
-              onClick={clearCart}
-              className="text-xs font-medium text-slate-400 hover:text-red-500"
-            >
-              Xóa tất cả
-            </button>
-          )}
-          {!currentShift && (
-            <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-600">
-              Chưa mở ca
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {cart.length > 0 && (
+              <>
+                <button
+                  onClick={handleHoldOrder}
+                  className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700"
+                  title="Giữ đơn (F9)"
+                >
+                  <PauseCircle size={14} /> Giữ đơn
+                </button>
+                <button
+                  onClick={clearCart}
+                  className="text-xs font-medium text-slate-400 hover:text-red-500"
+                >
+                  Xóa tất cả
+                </button>
+              </>
+            )}
+            {!currentShift && (
+              <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-600">
+                Chưa mở ca
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4">
@@ -241,7 +392,9 @@ export default function POS() {
             <div className="flex h-full flex-col items-center justify-center py-16 text-center text-slate-400">
               <ShoppingCart size={28} className="mb-2 opacity-40" />
               <p className="text-sm">Chưa có sản phẩm nào</p>
-              <p className="text-xs">Chọn sản phẩm bên trái để thêm vào giỏ</p>
+              <p className="text-xs">
+                Chọn sản phẩm bên trái hoặc quét mã vạch
+              </p>
             </div>
           ) : (
             cart.map((item) => (
@@ -280,42 +433,23 @@ export default function POS() {
               </div>
             </div>
 
-            <div className="mb-3 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setPaymentMethod("CASH")}
-                className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition-colors ${
-                  paymentMethod === "CASH"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                <Banknote size={16} /> Tiền mặt
-              </button>
-              <button
-                onClick={() => setPaymentMethod("TRANSFER")}
-                className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition-colors ${
-                  paymentMethod === "TRANSFER"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                <CreditCard size={16} /> Chuyển khoản
-              </button>
-            </div>
-
             <button
-              onClick={handleCheckout}
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => setPaymentModalOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-600"
             >
-              {submitting && <Loader2 size={16} className="animate-spin" />}
-              {submitting
-                ? "Đang xử lý..."
-                : `Thanh toán · ${formatCurrency(total)}`}
+              Thanh toán (F4) · {formatCurrency(total)}
             </button>
           </div>
         )}
       </div>
+
+      <PaymentModal
+        open={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        onConfirm={handleConfirmPayment}
+        submitting={submitting}
+        total={total}
+      />
 
       {receiptInvoice && (
         <ReceiptModal

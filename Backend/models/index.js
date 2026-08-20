@@ -13,6 +13,7 @@ const InvoiceDetail = require("./InvoiceDetail");
 const PrintOrder = require("./PrintOrder");
 const PrintOrderDetail = require("./PrintOrderDetail");
 const ActivityLog = require("./ActivityLog");
+const BankTransaction = require("./BankTransaction");
 
 /* ---------------------------------------------------------------- */
 /* Role <-> User                                                     */
@@ -128,6 +129,11 @@ PrintOrderDetail.belongsTo(PrintOrder, {
 /* ---------------------------------------------------------------- */
 User.hasMany(ActivityLog, { foreignKey: "userId", as: "activityLogs" });
 ActivityLog.belongsTo(User, { foreignKey: "userId", as: "user" });
+/* ---------------------------------------------------------------- */
+/* BankTransaction <-> Invoice                                       */
+/* ---------------------------------------------------------------- */
+Invoice.hasOne(BankTransaction, { foreignKey: "invoiceId", as: "bankTransaction" });
+BankTransaction.belongsTo(Invoice, { foreignKey: "invoiceId", as: "invoice" });
 
 module.exports = {
     sequelize,
@@ -144,4 +150,5 @@ module.exports = {
     PrintOrder,
     PrintOrderDetail,
     ActivityLog,
+    BankTransaction,
 };
