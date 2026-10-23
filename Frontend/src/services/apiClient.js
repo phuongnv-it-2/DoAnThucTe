@@ -1,10 +1,15 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL || "https://enlisted-coke-guide.ngrok-free.dev/api";
+// Dùng đường dẫn tương đối: Vite proxy (vite.config.js) chuyển /api sang backend,
+// nên không còn request cross-origin => không có CORS.
+// Khi deploy thật, đặt VITE_API_URL=https://domain-backend/api trong .env.production
+const baseURL = import.meta.env.VITE_API_URL || "/api";
 
 const apiClient = axios.create({
     baseURL,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+        "Content-Type": "application/json",
+    },
 });
 
 // Attach Bearer token to every outgoing request

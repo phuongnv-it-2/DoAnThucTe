@@ -19,12 +19,27 @@ const paymentRoutes = require("./routes/payment");
 const app = express();
 
 /* ---------------------------- Global middleware -------------------------- */
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-        credentials: true,
-    })
-);
+// Origin = nơi FRONTEND chạy (trình duyệt gửi request từ đâu), KHÔNG phải địa chỉ backend/ngrok.
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    process.env.CLIENT_URL, // khai báo trong .env nếu deploy frontend
+].filter(Boolean);
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // origin undefined: Postman, curl, webhook SePay (không phải trình duyệt)
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`CORS: origin ${origin} không được phép`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
+    optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
