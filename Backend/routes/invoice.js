@@ -12,6 +12,14 @@ router.get("/:id", authenticate, invoiceController.getById);
 // Bán hàng: ADMIN/MANAGER/STAFF đều được (thu ngân là STAFF)
 router.post("/", authenticate, authorize("ADMIN", "MANAGER", "STAFF"), invoiceController.create);
 
+// Xác nhận đã nhận chuyển khoản: thu ngân (STAFF) cũng phải làm được
+router.put(
+    "/:id/confirm-payment",
+    authenticate,
+    authorize("ADMIN", "MANAGER", "STAFF"),
+    invoiceController.confirmPayment
+);
+
 // Hủy hóa đơn: chỉ ADMIN/MANAGER (ảnh hưởng doanh thu + tồn kho)
 router.post("/:id/cancel", authenticate, authorize("ADMIN", "MANAGER"), invoiceController.cancel);
 

@@ -22,9 +22,8 @@ function generateInvoiceCode() {
 }
 
 async function createInvoice(data, actor) {
-    const finalPaymentMethod = paymentMethod || "CASH";
     const { shiftId, items, customerName, customerPhone, paymentMethod, discount, note } = data;
-
+    const finalPaymentMethod = paymentMethod || "CASH";
     if (!shiftId) throw ApiError.badRequest("Vui lòng chọn ca làm việc");
     if (!Array.isArray(items) || items.length === 0) {
         throw ApiError.badRequest("Hóa đơn phải có ít nhất 1 sản phẩm");
@@ -185,6 +184,7 @@ async function cancelInvoice(id, { reason }, actor) {
     if (invoice.status === "CANCELLED") {
         throw ApiError.badRequest("Hóa đơn đã được hủy trước đó");
     }
+    const wasPaid = invoice.status === "COMPLETED";
 
     return sequelize.transaction(async (t) => {
         for (const detail of invoice.details) {
@@ -226,14 +226,15 @@ async function cancelInvoice(id, { reason }, actor) {
         );
 
         // Trừ lại doanh thu ca làm việc tương ứng
+        // Trừ lại doanh thu ca làm việc: chỉ khi hóa đơn đã thanh toán
         if (invoice.shiftId) {
             const shift = await Shift.findByPk(invoice.shiftId, { transaction: t });
             if (shift) {
-                const cashDelta = invoice.paymentMethod === "CASH" ? Number(invoice.total) : 0;
-                const transferDelta = invoice.paymentMethod === "TRANSFER" ? Number(invoice.total) : 0;
+                const cashDelta = wasPaid && invoice.paymentMethod === "CASH" ? Number(invoice.total) : 0;
+                const transferDelta = wasPaid && invoice.paymentMethod === "TRANSFER" ? Number(invoice.total) : 0;
                 await shift.update(
                     {
-                        totalRevenue: Math.max(0, Number(shift.totalRevenue) - Number(invoice.total)),
+                        totalRevenue: Math.max(0, Number(shift.totalRevenue) - (wasPaid ? Number(invoice.total) : 0)),
                         invoiceCount: Math.max(0, shift.invoiceCount - 1),
                         cashAmount: Math.max(0, Number(shift.cashAmount) - cashDelta),
                         transferAmount: Math.max(0, Number(shift.transferAmount) - transferDelta),
@@ -256,6 +257,7 @@ async function cancelInvoice(id, { reason }, actor) {
         });
 
         return cancelled;
+
     });
 }
 
@@ -289,4 +291,41 @@ async function getById(id) {
     return invoice;
 }
 
-module.exports = { createInvoice, cancelInvoice, getAll, getById };
+async function confirmPayment(id, actor) {
+    await sequelize.transaction(async (t) => {
+        const invoice = await Invoice.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!invoice) throw ApiError.notFound("Không tìm thấy hóa đơn");
+        if (invoice.status === "COMPLETED") return; // bấm 2 lần: bỏ qua, không cộng doanh thu lại
+        if (invoice.status !== "PENDING_PAYMENT") {
+            throw ApiError.badRequest("Hóa đơn không ở trạng thái chờ thanh toán");
+        }
+
+        await invoice.update({ status: "COMPLETED" }, { transaction: t });
+
+        if (invoice.shiftId) {
+            const shift = await Shift.findByPk(invoice.shiftId, { transaction: t, lock: t.LOCK.UPDATE });
+            if (shift) {
+                const total = Number(invoice.total);
+                await shift.update(
+                    {
+                        totalRevenue: Number(shift.totalRevenue) + total,
+                        transferAmount: Number(shift.transferAmount) + total,
+                    },
+                    { transaction: t }
+                );
+            }
+        }
+    });
+
+    const invoice = await getById(id);
+    await logActivity({
+        userId: actor.id,
+        action: "UPDATE",
+        entity: "Invoice",
+        entityId: invoice.id,
+        description: `${actor.fullName} xác nhận đã nhận chuyển khoản hóa đơn ${invoice.invoiceCode}`,
+    });
+    return invoice;
+}
+
+module.exports = { createInvoice, cancelInvoice, confirmPayment, getAll, getById }; 

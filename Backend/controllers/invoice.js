@@ -16,6 +16,15 @@ const create = asyncHandler(async (req, res) => {
     });
 });
 
+const confirmPayment = asyncHandler(async (req, res) => {
+    const invoice = await invoiceService.confirmPayment(req.params.id, req.user);
+    res.json({
+        success: true,
+        message: "Đã xác nhận thanh toán",
+        data: invoice,
+    });
+});
+
 const cancel = asyncHandler(async (req, res) => {
     const invoice = await invoiceService.cancelInvoice(req.params.id, req.body, req.user);
     res.json({
@@ -36,4 +45,4 @@ const getById = asyncHandler(async (req, res) => {
     res.json({ success: true, data: invoice });
 });
 
-module.exports = { create, cancel, getAll, getById };
+module.exports = { create, confirmPayment, cancel, getAll, getById };

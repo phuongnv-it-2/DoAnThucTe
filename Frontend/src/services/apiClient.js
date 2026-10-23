@@ -1,8 +1,5 @@
 import axios from "axios";
 
-// Dùng đường dẫn tương đối: Vite proxy (vite.config.js) chuyển /api sang backend,
-// nên không còn request cross-origin => không có CORS.
-// Khi deploy thật, đặt VITE_API_URL=https://domain-backend/api trong .env.production
 const baseURL = import.meta.env.VITE_API_URL || "/api";
 
 const apiClient = axios.create({
