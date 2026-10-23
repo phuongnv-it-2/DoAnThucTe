@@ -1,4 +1,5 @@
 const shiftService = require("../services/shift");
+const payrollService = require("../services/payroll");
 const asyncHandler = require("../utils/asyncHandler");
 
 const open = asyncHandler(async (req, res) => {
@@ -11,24 +12,9 @@ const close = asyncHandler(async (req, res) => {
     res.json({ success: true, message: "Đóng ca thành công", data: shift });
 });
 
-const assign = asyncHandler(async (req, res) => {
-    const assignment = await shiftService.assignEmployee(req.params.id, req.body, req.user);
-    res.status(201).json({ success: true, message: "Phân công nhân viên thành công", data: assignment });
-});
-
-const checkIn = asyncHandler(async (req, res) => {
-    const assignment = await shiftService.checkIn(req.params.id, req.params.employeeId, req.user);
-    res.json({ success: true, message: "Check-in thành công", data: assignment });
-});
-
-const checkOut = asyncHandler(async (req, res) => {
-    const assignment = await shiftService.checkOut(req.params.id, req.params.employeeId, req.user);
-    res.json({ success: true, message: "Check-out thành công", data: assignment });
-});
-
-const removeAssignment = asyncHandler(async (req, res) => {
-    await shiftService.removeAssignment(req.params.id, req.params.employeeId, req.user);
-    res.json({ success: true, message: "Đã hủy phân công nhân viên" });
+const listEmployees = asyncHandler(async (req, res) => {
+    const employees = await shiftService.listActiveEmployees();
+    res.json({ success: true, data: employees });
 });
 
 const getAll = asyncHandler(async (req, res) => {
@@ -47,4 +33,21 @@ const getCurrent = asyncHandler(async (req, res) => {
     res.json({ success: true, data: shift });
 });
 
-module.exports = { open, close, assign, checkIn, checkOut, removeAssignment, getAll, getById, getCurrent };
+const payroll = asyncHandler(async (req, res) => {
+    const data = await payrollService.getMonthlyPayroll(req.query.month);
+    res.json({ success: true, data });
+});
+
+const exportPayroll = asyncHandler(async (req, res) => {
+    const { month } = req.query;
+    const workbook = await payrollService.exportMonthlyPayroll(month);
+    res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="luong-${month}.xlsx"`);
+    await workbook.xlsx.write(res);
+    res.end();
+});
+
+module.exports = { open, close, listEmployees, getAll, getById, getCurrent, payroll, exportPayroll };

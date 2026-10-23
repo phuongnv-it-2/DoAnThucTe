@@ -9,14 +9,18 @@ import OpenShiftModal from "../../components/shift/OpenShiftModal";
 import CloseShiftModal from "../../components/shift/CloseShiftModal";
 import ShiftHistoryTable from "../../components/shift/ShiftHistoryTable";
 import ShiftDetailModal from "../../components/shift/ShiftDetailModal";
+import PayrollReport from "../../components/shift/PayrollReport";
 
 export default function ShiftManagement() {
   const toast = useToast();
   const { role } = useAuth();
-  const canManage = role === "ADMIN" || role === "MANAGER";
+  // Báo cáo lương chỉ dành cho chủ quán / quản lý
+  const canViewPayroll = role === "ADMIN" || role === "MANAGER";
 
+  const [tab, setTab] = useState("shifts"); // "shifts" | "payroll"
   const [currentShift, setCurrentShift] = useState(null);
   const [history, setHistory] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [openModalVisible, setOpenModalVisible] = useState(false);
@@ -46,6 +50,26 @@ export default function ShiftManagement() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tải danh sách nhân viên rồi mới mở form mở ca
+  async function handleOpenClick() {
+    try {
+      const res = await shiftApi.getEmployees();
+      const list = res.data.data;
+      if (!list || list.length === 0) {
+        toast.error(
+          "Chưa có nhân viên nào đang làm việc. Hãy tạo hồ sơ nhân viên trước."
+        );
+        return;
+      }
+      setEmployees(list);
+      setOpenModalVisible(true);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Không thể tải danh sách nhân viên"
+      );
+    }
+  }
 
   async function handleOpenShift(payload) {
     setSubmitting(true);
@@ -84,40 +108,66 @@ export default function ShiftManagement() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-slate-400">
-        <Loader2 size={24} className="animate-spin" />
-      </div>
-    );
-  }
+  const tabs = [
+    { key: "shifts", label: "Ca làm việc" },
+    ...(canViewPayroll ? [{ key: "payroll", label: "Bảng lương tháng" }] : []),
+  ];
 
   return (
     <div>
       <PageHeader
         title="Ca làm việc"
-        subtitle="Quản lý mở ca, đóng ca và theo dõi lịch sử"
+        subtitle="Mở ca, chọn nhân viên, ghi giờ công và tính lương tháng"
       />
 
-      <div className="mb-6">
-        <CurrentShiftCard
-          shift={currentShift}
-          canManage={canManage}
-          onOpen={() => setOpenModalVisible(true)}
-          onClose={() => setCloseModalVisible(true)}
-        />
-      </div>
+      {tabs.length > 1 && (
+        <div className="mb-5 flex gap-1 border-b border-slate-200">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "border-emerald-500 text-emerald-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">
-        Lịch sử ca làm việc
-      </h3>
-      <ShiftHistoryTable shifts={history} onView={handleViewDetail} />
+      {tab === "payroll" && canViewPayroll ? (
+        <PayrollReport />
+      ) : loading ? (
+        <div className="flex h-64 items-center justify-center text-slate-400">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="mb-6">
+            <CurrentShiftCard
+              shift={currentShift}
+              canManage
+              onOpen={handleOpenClick}
+              onClose={() => setCloseModalVisible(true)}
+            />
+          </div>
+
+          <h3 className="mb-3 text-sm font-semibold text-slate-700">
+            Lịch sử ca làm việc
+          </h3>
+          <ShiftHistoryTable shifts={history} onView={handleViewDetail} />
+        </>
+      )}
 
       <OpenShiftModal
         open={openModalVisible}
         onClose={() => setOpenModalVisible(false)}
         onSubmit={handleOpenShift}
         submitting={submitting}
+        employees={employees}
       />
 
       <CloseShiftModal

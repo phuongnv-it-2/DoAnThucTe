@@ -5,34 +5,18 @@ const shiftController = require("../controllers/shift");
 const authenticate = require("../middleware/authenticate");
 const authorize = require("../middleware/authorize");
 
-// Xem: mọi tài khoản đã đăng nhập
 router.get("/", authenticate, shiftController.getAll);
-router.get("/current", authenticate, shiftController.getCurrent); // phải đặt TRƯỚC "/:id"
+router.get("/current", authenticate, shiftController.getCurrent);
+router.get("/employees", authenticate, shiftController.listEmployees);
+
+// Báo cáo lương tháng: chỉ ADMIN/MANAGER
+router.get("/payroll", authenticate, authorize("ADMIN", "MANAGER"), shiftController.payroll);
+router.get("/payroll/export", authenticate, authorize("ADMIN", "MANAGER"), shiftController.exportPayroll);
+
 router.get("/:id", authenticate, shiftController.getById);
 
-// Mở/đóng ca: chỉ ADMIN/MANAGER
-router.post("/open", authenticate, authorize("ADMIN", "MANAGER"), shiftController.open);
-router.post("/:id/close", authenticate, authorize("ADMIN", "MANAGER"), shiftController.close);
-
-// Phân công / check-in / check-out: chỉ ADMIN/MANAGER
-router.post("/:id/assignments", authenticate, authorize("ADMIN", "MANAGER"), shiftController.assign);
-router.post(
-    "/:id/assignments/:employeeId/check-in",
-    authenticate,
-    authorize("ADMIN", "MANAGER"),
-    shiftController.checkIn
-);
-router.post(
-    "/:id/assignments/:employeeId/check-out",
-    authenticate,
-    authorize("ADMIN", "MANAGER"),
-    shiftController.checkOut
-);
-router.delete(
-    "/:id/assignments/:employeeId",
-    authenticate,
-    authorize("ADMIN", "MANAGER"),
-    shiftController.removeAssignment
-);
+// Nhân viên tự mở/đóng ca
+router.post("/open", authenticate, authorize("ADMIN", "MANAGER", "STAFF"), shiftController.open);
+router.post("/:id/close", authenticate, authorize("ADMIN", "MANAGER", "STAFF"), shiftController.close);
 
 module.exports = router;

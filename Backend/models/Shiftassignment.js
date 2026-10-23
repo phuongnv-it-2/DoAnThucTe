@@ -39,6 +39,15 @@ ShiftAssignment.init(
             type: DataTypes.DATE,
             allowNull: true,
         },
+        plannedStartAt: { type: DataTypes.DATE, allowNull: true },
+        plannedEndAt: { type: DataTypes.DATE, allowNull: true },
+        workedMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+        hourlyRateSnapshot: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            comment: "Lương/giờ tại thời điểm mở ca",
+        },
         status: {
             type: DataTypes.ENUM("ASSIGNED", "CHECKED_IN", "CHECKED_OUT"),
             allowNull: false,

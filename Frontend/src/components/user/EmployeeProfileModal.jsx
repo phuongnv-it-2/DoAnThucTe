@@ -15,6 +15,7 @@ export default function EmployeeProfileModal({
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [hireDate, setHireDate] = useState("");
   const [status, setStatus] = useState("ACTIVE");
+  const [hourlyRate, setHourlyRate] = useState("");
 
   useEffect(() => {
     if (open && user?.employee) {
@@ -24,6 +25,11 @@ export default function EmployeeProfileModal({
       setDateOfBirth(user.employee.dateOfBirth || "");
       setHireDate(user.employee.hireDate || "");
       setStatus(user.employee.status || "ACTIVE");
+      setHourlyRate(
+        user.employee.hourlyRate != null
+          ? String(Number(user.employee.hourlyRate))
+          : ""
+      );
     }
   }, [open, user]);
 
@@ -37,6 +43,7 @@ export default function EmployeeProfileModal({
       dateOfBirth: dateOfBirth || null,
       hireDate: hireDate || null,
       status,
+      hourlyRate: hourlyRate === "" ? 0 : Number(hourlyRate),
     });
   }
 
@@ -136,6 +143,25 @@ export default function EmployeeProfileModal({
               className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            Lương theo giờ (VND/giờ)
+          </label>
+          <input
+            type="number"
+            min={0}
+            step={1000}
+            value={hourlyRate}
+            onChange={(e) => setHourlyRate(e.target.value)}
+            placeholder="Ví dụ: 25000"
+            className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Dùng để tính lương tháng. Mức lương được ghi lại lúc mở ca, nên đổi
+            lương chỉ áp dụng cho các ca mở sau đó.
+          </p>
         </div>
 
         <div>

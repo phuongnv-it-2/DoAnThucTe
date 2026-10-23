@@ -1,7 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import Modal from "../ui/Modal";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { toHHmm, minutesBetweenHHmm, formatDuration } from "../../utils/time";
+
+const inputCls =
+  "rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
 
 export default function CloseShiftModal({
   open,
@@ -12,15 +16,61 @@ export default function CloseShiftModal({
 }) {
   const [actualCash, setActualCash] = useState("");
   const [note, setNote] = useState("");
+  // employeeId (string) -> "HH:mm" giờ ra
+  const [outTimes, setOutTimes] = useState({});
+
+  const assignments = shift?.assignments || [];
+
+  // Mỗi lần mở modal: giờ ra mặc định = giờ ra dự kiến đã nhập lúc mở ca
+  useEffect(() => {
+    if (open && shift) {
+      setActualCash("");
+      setNote("");
+      setOutTimes(
+        Object.fromEntries(
+          (shift.assignments || []).map((a) => [
+            String(a.employeeId),
+            toHHmm(a.checkOutAt || a.plannedEndAt),
+          ])
+        )
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, shift?.id]);
 
   const difference = useMemo(() => {
     if (!shift || actualCash === "") return null;
     return Number(actualCash) - Number(shift.cashAmount);
   }, [actualCash, shift]);
 
+  const rows = assignments.map((a) => {
+    const key = String(a.employeeId);
+    const inTime = toHHmm(a.checkInAt);
+    const outTime = outTimes[key] ?? "";
+    const minutes = minutesBetweenHHmm(inTime, outTime);
+    return {
+      a,
+      key,
+      inTime,
+      outTime,
+      minutes,
+      bad: minutes == null || minutes <= 0,
+    };
+  });
+
+  const hasBadTime = rows.some((r) => r.bad);
+  const canSubmit = !submitting && actualCash !== "" && !hasBadTime;
+
   function handleSubmit() {
-    if (actualCash === "") return;
-    onSubmit({ actualCash: Number(actualCash), note });
+    if (!canSubmit) return;
+    onSubmit({
+      actualCash: Number(actualCash),
+      note,
+      assignments: rows.map((r) => ({
+        employeeId: r.a.employeeId,
+        checkOutTime: r.outTime,
+      })),
+    });
   }
 
   if (!shift) return null;
@@ -30,6 +80,7 @@ export default function CloseShiftModal({
       open={open}
       onClose={onClose}
       title={`Chốt ca — ${shift.name} (${shift.shiftCode})`}
+      size="xl"
       footer={
         <>
           <button
@@ -40,8 +91,8 @@ export default function CloseShiftModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || actualCash === ""}
-            className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+            disabled={!canSubmit}
+            className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
             Xác nhận đóng ca
@@ -76,6 +127,58 @@ export default function CloseShiftModal({
         </div>
 
         <div>
+          <p className="mb-1.5 text-sm font-medium text-slate-700">
+            Giờ làm của nhân viên
+          </p>
+          {rows.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-300 py-4 text-center text-sm text-slate-400">
+              Ca này chưa có nhân viên nào
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+              {rows.map((r) => (
+                <div
+                  key={r.a.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5"
+                >
+                  <span className="min-w-[8rem] flex-1 text-sm font-medium text-slate-800">
+                    {r.a.employee?.user?.fullName || `NV #${r.a.employeeId}`}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    Vào {r.inTime || "—"}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-500">
+                    Ra
+                    <input
+                      type="time"
+                      value={r.outTime}
+                      onChange={(e) =>
+                        setOutTimes((prev) => ({
+                          ...prev,
+                          [r.key]: e.target.value,
+                        }))
+                      }
+                      className={`${inputCls} ${r.bad ? "border-red-400" : ""}`}
+                    />
+                  </label>
+                  <span
+                    className={`w-24 text-right text-xs font-medium ${
+                      r.bad ? "text-red-500" : "text-emerald-700"
+                    }`}
+                  >
+                    {r.bad ? "Giờ ra sai" : formatDuration(r.minutes)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-1.5 text-xs text-slate-400">
+            Giờ ra mặc định là giờ dự kiến. Ai về sớm hoặc về muộn thì sửa lại để
+            tính lương đúng.
+          </p>
+        </div>
+
+        <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">
             Tiền mặt thực đếm được <span className="text-red-500">*</span>
           </label>
@@ -85,7 +188,6 @@ export default function CloseShiftModal({
             value={actualCash}
             onChange={(e) => setActualCash(e.target.value)}
             placeholder="0"
-            autoFocus
             className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </div>

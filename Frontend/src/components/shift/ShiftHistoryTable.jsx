@@ -39,7 +39,7 @@ export default function ShiftHistoryTable({ shifts, onView }) {
               </td>
               <td className="px-4 py-3 text-slate-600">{s.date}</td>
               <td className="px-4 py-3 text-slate-600">
-                {s.startTime} - {s.endTime}
+                {String(s.startTime).slice(0, 5)} - {String(s.endTime).slice(0, 5)}
               </td>
               <td className="px-4 py-3">
                 <Badge status={s.status} />

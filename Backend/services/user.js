@@ -98,6 +98,9 @@ async function setStatus(id, status, actor) {
 async function updateEmployee(userId, data, actor) {
     const employee = await Employee.findOne({ where: { userId } });
     if (!employee) throw ApiError.notFound("Không tìm thấy hồ sơ nhân viên");
+    if (data.hourlyRate !== undefined && (Number.isNaN(Number(data.hourlyRate)) || Number(data.hourlyRate) < 0)) {
+        throw ApiError.badRequest("Lương theo giờ không hợp lệ");
+    }
 
     await employee.update({
         phone: data.phone ?? employee.phone,
@@ -107,6 +110,7 @@ async function updateEmployee(userId, data, actor) {
         dateOfBirth: data.dateOfBirth ?? employee.dateOfBirth,
         hireDate: data.hireDate ?? employee.hireDate,
         status: data.status ?? employee.status,
+        hourlyRate: data.hourlyRate ?? employee.hourlyRate,
     });
 
     await logActivity({

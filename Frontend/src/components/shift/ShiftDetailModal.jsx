@@ -1,6 +1,7 @@
 import Modal from "../ui/Modal";
 import Badge from "../ui/Badge";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { toHHmm, formatDuration } from "../../utils/time";
 
 export default function ShiftDetailModal({ open, onClose, shift }) {
   if (!shift) return null;
@@ -23,7 +24,8 @@ export default function ShiftDetailModal({ open, onClose, shift }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            {shift.date} · {shift.startTime} - {shift.endTime}
+            {shift.date} · {String(shift.startTime).slice(0, 5)} -{" "}
+            {String(shift.endTime).slice(0, 5)}
           </p>
           <Badge status={shift.status} />
         </div>
@@ -84,25 +86,53 @@ export default function ShiftDetailModal({ open, onClose, shift }) {
 
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-700">
-            Nhân viên phân công
+            Nhân viên và giờ làm
           </p>
           {shift.assignments?.length > 0 ? (
-            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-              {shift.assignments.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between px-4 py-2.5 text-sm"
-                >
-                  <span className="text-slate-700">
-                    {a.employee?.user?.fullName || `NV #${a.employeeId}`}
-                  </span>
-                  <Badge status={a.status} />
-                </div>
-              ))}
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-2">Nhân viên</th>
+                    <th className="px-4 py-2">Vào</th>
+                    <th className="px-4 py-2">Ra</th>
+                    <th className="px-4 py-2 text-right">Số giờ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shift.assignments.map((a) => {
+                    const closed = !!a.checkOutAt;
+                    return (
+                      <tr
+                        key={a.id}
+                        className="border-t border-slate-100 text-slate-700"
+                      >
+                        <td className="px-4 py-2.5 font-medium">
+                          {a.employee?.user?.fullName || `NV #${a.employeeId}`}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {toHHmm(a.checkInAt || a.plannedStartAt) || "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          {toHHmm(a.checkOutAt || a.plannedEndAt) || "—"}
+                          {!closed && (
+                            <span className="ml-1 text-xs text-slate-400">
+                              (dự kiến)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {closed ? formatDuration(a.workedMinutes) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <p className="text-sm text-slate-400">
-              Chưa có nhân viên nào được phân công
+              Chưa có nhân viên nào trong ca này
             </p>
           )}
         </div>

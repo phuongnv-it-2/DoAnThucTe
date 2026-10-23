@@ -48,6 +48,12 @@ Employee.init(
             type: DataTypes.DATEONLY,
             allowNull: true,
         },
+        hourlyRate: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0,
+            comment: "Lương theo giờ (VND)",
+        },
         status: {
             type: DataTypes.ENUM("ACTIVE", "INACTIVE"),
             allowNull: false,

@@ -1,5 +1,6 @@
 import { Clock, PlayCircle, StopCircle } from "lucide-react";
 import { formatCurrency } from "../../utils/formatCurrency";
+import { toHHmm } from "../../utils/time";
 
 export default function CurrentShiftCard({
   shift,
@@ -18,9 +19,7 @@ export default function CurrentShiftCard({
             Chưa có ca làm việc nào đang mở
           </p>
           <p className="text-sm text-slate-400">
-            {canManage
-              ? "Mở ca để bắt đầu bán hàng."
-              : "Vui lòng chờ quản lý mở ca."}
+            Chọn ca (sáng, chiều, tối) và nhân viên làm ca để bắt đầu bán hàng.
           </p>
         </div>
         {canManage && (
@@ -35,6 +34,8 @@ export default function CurrentShiftCard({
     );
   }
 
+  const assignments = shift.assignments || [];
+
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -46,7 +47,8 @@ export default function CurrentShiftCard({
             </p>
           </div>
           <p className="text-xs text-slate-500">
-            {shift.date} · {shift.startTime} - {shift.endTime}
+            {shift.date} · {String(shift.startTime).slice(0, 5)} -{" "}
+            {String(shift.endTime).slice(0, 5)}
           </p>
         </div>
 
@@ -59,6 +61,24 @@ export default function CurrentShiftCard({
           </button>
         )}
       </div>
+
+      {assignments.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {assignments.map((a) => (
+            <span
+              key={a.id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs text-slate-700"
+            >
+              <span className="font-medium">
+                {a.employee?.user?.fullName || `NV #${a.employeeId}`}
+              </span>
+              <span className="text-slate-400">
+                {toHHmm(a.checkInAt)}-{toHHmm(a.plannedEndAt)}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg bg-white p-3">

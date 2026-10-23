@@ -10,6 +10,7 @@ const STATUS_STYLES = {
 
   // Invoice
   CANCELLED: "bg-red-50 text-red-700",
+  PENDING_PAYMENT: "bg-orange-50 text-orange-700",
 
   // PrintOrder
   PENDING: "bg-orange-50 text-orange-700",
@@ -24,6 +25,7 @@ const STATUS_LABELS = {
   IN_PROGRESS: "Đang mở",
   COMPLETED: "Đã đóng",
   CANCELLED: "Đã hủy",
+  PENDING_PAYMENT: "Chờ thanh toán",
   PENDING: "Chờ xử lý",
   PROCESSING: "Đang xử lý",
   DELIVERED: "Đã giao",
